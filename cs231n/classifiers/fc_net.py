@@ -48,8 +48,11 @@ class TwoLayerNet(object):
         # weights and biases using the keys 'W2' and 'b2'.                         #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        self.params['W1'] = np.random.normal(0, weight_scale, (input_dim, hidden_dim))
+        self.params['b1'] = np.zeros(hidden_dim)
 
-        pass
+        self.params['W2'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
+        self.params['b2'] = np.zeros(num_classes)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -82,8 +85,13 @@ class TwoLayerNet(object):
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        
+        #first layer
+        out1, cache1 = affine_forward(X, self.params['W1'], self.params['b1'])
+        out1r, cache1r = relu_forward(out1)
+        out2, cache2 = affine_forward(out1r, self.params['W2'], self.params['b2'])
 
-        pass
+        scores = out2
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -106,8 +114,24 @@ class TwoLayerNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        
+        #calculate loss
+        loss, dxLoss = softmax_loss(scores, y)
+        loss += self.reg * 0.5 * (np.sum(self.params['W1'] * self.params['W1']) + np.sum(self.params['W2'] * self.params['W2']))
 
-        pass
+        #do back prop
+        dx2, dw2, db2 = affine_backward(dxLoss, cache2)
+        dw2 += self.reg * self.params['W2']
+
+        dx1r = relu_backward(dx2, cache1r)
+
+        dx1, dw1, db1 = affine_backward(dx1r, cache1)
+        dw1 += self.reg * self.params['W1']
+
+        grads['W2'] = dw2
+        grads['b2'] = db2
+        grads['W1'] = dw1
+        grads['b1'] = db1
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -177,9 +201,17 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zeros.                               #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        self.WibiNames = []
+        hidden_dims = [input_dim] + hidden_dims + [num_classes]
+        for i in range(1, self.num_layers + 1):
+          WName = "W" + str(i)
+          bName = "b" + str(i) 
+          self.params[WName] = np.random.normal(0, weight_scale, (hidden_dims[i - 1], hidden_dims[i] ) )
+          self.params[bName] = np.zeros(hidden_dims[i])
+          self.WibiNames.append((WName, bName))
 
-        pass
-
+        hidden_dims = hidden_dims[1:-1]
+        print(self.WibiNames)
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -240,8 +272,23 @@ class FullyConnectedNet(object):
         # layer, etc.                                                              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        #{affine - [batch/layer norm] - relu - [dropout]} x (L - 1) - affine - softmax
+        #create parameter string names
+        affineCacheList = []
+        reluCacheList = []
+        Xcurr = X
+        for Wname, bname in self.WibiNames[:-1]:
+          AFout, AFcache = affine_forward(Xcurr, self.params[Wname], self.params[bname])
+          RLout, RLcache = relu_forward(AFout)
 
-        pass
+          affineCacheList.append(AFcache)
+          reluCacheList.append(RLcache)
+          Xcurr = RLout
+
+        #last one is scores
+        Wname, bname = self.WibiNames[-1]
+        scores, AFcache = affine_forward(Xcurr, self.params[Wname], self.params[bname])
+        affineCacheList.append(AFcache)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -267,8 +314,25 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        
+        loss, dxScores = softmax_loss(scores, y) 
+        #get regularization scores
+        for Wname, bname in self.WibiNames:
+          Wcurr = self.params[Wname]
+          loss += self.reg * 0.5 * np.sum( Wcurr * Wcurr )
+          
+        #get the gradient for all the weights and bias'
+        #do first one, odd one out of the pack
+        curDX, curDW, curDb = affine_backward(dxScores, affineCacheList[-1])
+        curDW += self.reg * self.params[self.WibiNames[-1][0]]
+        grads[self.WibiNames[-1][0]] = curDW
+        grads[self.WibiNames[-1][1]] = curDb
+        for i in reversed(range(self.num_layers-1)):
+          reluDx = relu_backward(curDX, reluCacheList[i])
+          curDX, curDW, curDb = affine_backward(reluDx, affineCacheList[i])
+          curDW += self.reg * self.params[self.WibiNames[i][0]]
+          grads[self.WibiNames[i][0]] = curDW
+          grads[self.WibiNames[i][1]] = curDb
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

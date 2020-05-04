@@ -297,6 +297,7 @@ class Solver(object):
 
                 # Keep track of the best model
                 if val_acc > self.best_val_acc:
+                    self.best_train_acc = train_acc
                     self.best_val_acc = val_acc
                     self.best_params = {}
                     for k, v in self.model.params.items():
