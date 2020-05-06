@@ -201,8 +201,21 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # might prove to be helpful.                                          #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        #First get the mean and variance of each dimension from mini batch
+        #mean
+        MBMean = np.sum(x, axis = 0) / N # MBMean.shape = (D,)
 
-        pass
+        #variance
+        MeanDiff = x - MBMean[np.newaxis, :] 
+        MeanDiffSquared = np.square(MeanDiff)
+        MBVariance = np.sum(MeanDiffSquared, axis = 0) / N
+
+        xhat =  (x - MBMean[np.newaxis, :]) / (np.sqrt(MBVariance)[np.newaxis, :] + eps )
+        out = (xhat * gamma[np.newaxis, :]) + beta[np.newaxis, :]
+
+        
+        running_mean = momentum * running_mean + (1-momentum) * MBMean
+        running_var = momentum * running_var + (1-momentum) * MBVariance
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -217,7 +230,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        xhat =  (x - running_mean[np.newaxis, :]) / (np.sqrt(running_var)[np.newaxis, :] + eps )
+        out = (xhat * gamma[np.newaxis, :]) + beta[np.newaxis, :]
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
