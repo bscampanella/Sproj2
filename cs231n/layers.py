@@ -216,7 +216,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         
         running_mean = momentum * running_mean + (1-momentum) * MBMean
         running_var = momentum * running_var + (1-momentum) * MBVariance
-
+        
+        cache = (x,xhat,gamma,MBMean,MBVariance,eps)  
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
         #                           END OF YOUR CODE                          #
@@ -272,8 +273,25 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x, xhat, gamma, MBMean, MBVariance, eps = cache
 
-    pass
+    #first dgamma
+    dgamma =  np.sum((xhat * dout), axis = 0)
+
+    #second dbeta
+    dbeta = np.sum(dout, axis = 0)
+
+    #dxhat
+    dxhat = dout * gamma[np.newaxis, :]
+    
+    #dsigmasq
+    dsigmasq = np.sum( dxhat * (x - MBMean[np.newaxis, :]) * ( np.power((MBVariance[np.newaxis, :] + eps), -1.5 ) * -0.5 ) , axis = 0)
+
+    #dmu
+    dmu = np.sum((dxhat * np.power((MBVariance[np.newaxis, :] + eps), -0.5) * -1 ), axis = 0) + (dsigmasq * (np.sum((-2 * (x - MBMean[np.newaxis, :])), axis = 0)/x.shape[0])) 
+
+    #dx
+    dx = (dxhat * np.power((MBVariance[np.newaxis, :] + eps), -0.5)) + (dsigmasq[np.newaxis, :] * (x - MBMean[np.newaxis, :]) * 2/x.shape[0]) + (dmu[np.newaxis,:] / x.shape[0])
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
