@@ -202,6 +202,7 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         self.WibiNames = []
+        self.GibiNames = []
         hidden_dims = [input_dim] + hidden_dims + [num_classes]
         for i in range(1, self.num_layers + 1):
           WName = "W" + str(i)
@@ -210,8 +211,16 @@ class FullyConnectedNet(object):
           self.params[bName] = np.zeros(hidden_dims[i])
           self.WibiNames.append((WName, bName))
 
+        if self.normalization == "batchnorm":
+          for i in range(1,self.num_layers):
+            gammaName = "gamma" + str(i)
+            bettaName = "betta" + str(i)
+            self.params[gammaName] = np.ones(hidden_dims[i])
+            self.params[bettaName] = np.zeros(hidden_dims[i])
+            self.GibiNames.append((gammaName, bettaName))
+
         hidden_dims = hidden_dims[1:-1]
-        print(self.WibiNames)
+        #print(self.WibiNames)
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -275,10 +284,19 @@ class FullyConnectedNet(object):
         #{affine - [batch/layer norm] - relu - [dropout]} x (L - 1) - affine - softmax
         #create parameter string names
         affineCacheList = []
+        batchnormCacheList = []
         reluCacheList = []
         Xcurr = X
-        for Wname, bname in self.WibiNames[:-1]:
+        #for Wname, bname in self.WibiNames[:-1]:
+        for i in range(self.num_layers - 1):
+          Wname, bname = self.WibiNames[i]
           AFout, AFcache = affine_forward(Xcurr, self.params[Wname], self.params[bname])
+
+          if self.normalization=='batchnorm':
+            GammaName, bnBettaName = self.GibiNames[i] 
+            AFout, BNcache = batchnorm_forward(AFout, self.params[GammaName], self.params[bnBettaName], self.bn_params[i])
+            batchnormCacheList.append(BNcache)
+
           RLout, RLcache = relu_forward(AFout)
 
           affineCacheList.append(AFcache)
@@ -324,11 +342,16 @@ class FullyConnectedNet(object):
         #get the gradient for all the weights and bias'
         #do first one, odd one out of the pack
         curDX, curDW, curDb = affine_backward(dxScores, affineCacheList[-1])
-        curDW += self.reg * self.params[self.WibiNames[-1][0]]
+        curDW += self.reg * self.params[self.WibiNames[-1][0]]  #add regulaization grad
         grads[self.WibiNames[-1][0]] = curDW
         grads[self.WibiNames[-1][1]] = curDb
         for i in reversed(range(self.num_layers-1)):
           reluDx = relu_backward(curDX, reluCacheList[i])
+          if self.normalization == "batchnorm":
+            bnDx, Dgamma, Dbetta = batchnorm_backward(reluDx,batchnormCacheList[i])
+            grads[self.GibiNames[i][0]] = Dgamma
+            grads[self.GibiNames[i][1]] = Dbetta
+            reluDx = bnDx
           curDX, curDW, curDb = affine_backward(reluDx, affineCacheList[i])
           curDW += self.reg * self.params[self.WibiNames[i][0]]
           grads[self.WibiNames[i][0]] = curDW

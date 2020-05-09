@@ -210,7 +210,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         MeanDiffSquared = np.square(MeanDiff)
         MBVariance = np.sum(MeanDiffSquared, axis = 0) / N
 
-        xhat =  (x - MBMean[np.newaxis, :]) / (np.sqrt(MBVariance)[np.newaxis, :] + eps )
+        xhat =  (x - MBMean[np.newaxis, :]) / (np.sqrt(MBVariance + eps)[np.newaxis, :]  )
         out = (xhat * gamma[np.newaxis, :]) + beta[np.newaxis, :]
 
         
@@ -272,9 +272,10 @@ def batchnorm_backward(dout, cache):
     # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be helpful.                                              #
     ###########################################################################
-    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    # # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     x, xhat, gamma, MBMean, MBVariance, eps = cache
-
+    #x_hat, mu, var = xhat, MBMean, MBVariance
+    #N, D = dout.shape
     #first dgamma
     dgamma =  np.sum((xhat * dout), axis = 0)
 
@@ -292,6 +293,21 @@ def batchnorm_backward(dout, cache):
 
     #dx
     dx = (dxhat * np.power((MBVariance[np.newaxis, :] + eps), -0.5)) + (dsigmasq[np.newaxis, :] * (x - MBMean[np.newaxis, :]) * 2/x.shape[0]) + (dmu[np.newaxis,:] / x.shape[0])
+    dbeta = np.sum(dout, axis=0)
+    # dgamma = np.sum(dout * x_hat, axis=0)
+
+    # # for dx visit this backprop diagram:
+    # # https://kratzert.github.io/2016/02/12/understanding-the-gradient-flow-through-the-batch-normalization-layer.html
+    # dx_hat = dout * gamma
+    # dxmu1 = dx_hat * 1 / np.sqrt(var + eps)
+    # divar = np.sum(dx_hat * (x - mu), axis=0)
+    # dvar = divar * -1 / 2 * (var + eps) ** (-3/2)
+    # dsq = 1 / N * np.ones((N, D)) * dvar
+    # dxmu2 = 2 * (x - mu) * dsq
+    # dx1 = dxmu1 + dxmu2
+    # dmu = -1 * np.sum(dxmu1 + dxmu2, axis=0)
+    # dx2 = 1 / N * np.ones((N, D)) * dmu
+    # dx = dx1 + dx2
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
